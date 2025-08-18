@@ -16,6 +16,7 @@ import { ConfigModule } from '@nestjs/config';
       isGlobal: true,
     }),
     TypeOrmModule.forRoot({
+      url: process.env.POSTGRES_URL || 'postgres://postgres:1234@localhost:5432/homefinance',
       type: 'postgres',
       host: process.env.POSTGRES_HOST || 'localhost',
       port: Number(process.env.POSTGRES_PORT) || 5432,
