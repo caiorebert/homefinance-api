@@ -24,6 +24,7 @@ import { ConfigModule } from '@nestjs/config';
       password: process.env.POSTGRES_PASSWORD || '1234',
       database: process.env.POSTGRES_DATABASE || 'homefinance',
       autoLoadEntities: true,
+      synchronize: process.env.TYPEORM_SYNC === 'true' || true,
       logging: true,
       entities: [
         __dirname + '/**/*.entity{.ts,.js}',
