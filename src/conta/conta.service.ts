@@ -20,7 +20,9 @@ export class ContaService {
             throw new Error('ID da conta não fornecido.');
         }
 
-        const conta = await this.contaRepository.findOne({ where: { id } });
+        const conta = await this.contaRepository.findOne({ 
+            where: { id } 
+        });
         if (!conta) {
             throw new Error(`Conta com ID ${id} não encontrada.`);
         }

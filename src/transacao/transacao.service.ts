@@ -8,6 +8,7 @@ import { ContaService } from 'src/conta/conta.service';
 import { CreateTransacaoDto } from './dto/createTransacao.dto';
 import { CategoriaService } from 'src/categoria/categoria.service';
 import { Conta } from 'src/conta/conta.entity';
+import { UpdateTransacaoDto } from './dto/updateTransacao.dto';
 
 export enum TipoTransacao {
     ENTRADA = 'entrada',
@@ -36,7 +37,10 @@ export class TransacaoService {
             throw new Error('ID da transação não fornecido.');
         }
         
-        const transacao = await this.transacaoRepository.findOne({ where: { id } });
+        const transacao = await this.transacaoRepository.findOne({ 
+            where: { id },
+            relations: ['categoria', 'conta'] 
+        });
         
         if (!transacao) {
             throw new Error(`Transação com ID ${id} não encontrada.`);
@@ -53,7 +57,17 @@ export class TransacaoService {
         if (!contaUser) {
             throw new Error(`Conta não encontrada para o usuário com ID ${user_id}.`);
         }
-        return this.transacaoRepository.find({ where: { conta: { id: contaUser.id } }});
+        return this.transacaoRepository.find({
+            select: [
+                'id',
+                'valor',
+                'data',
+                'descricao',
+                'tipo'
+            ], 
+            order: { data: 'DESC' },
+            where: { conta: { id: contaUser.id },
+        }});
     }
 
     async getValorSaidas(conta_id: number): Promise<number> {
@@ -120,13 +134,68 @@ export class TransacaoService {
         return await this.transacaoRepository.save(novaTransacao);
     }
 
-    async deleteTransacao(id: number): Promise<void> {
+    async update(id: number, updateTransacaoDto: UpdateTransacaoDto) {
+        const transacao = await this.getTransacaoById(id);
+        if (!transacao) {
+            throw new Error(`Transação com ID ${id} não encontrada.`);
+        }
+
+        if (updateTransacaoDto.categoria_id) {
+            const categoria = await this.categoriaService.getCategoriaById(updateTransacaoDto.categoria_id);
+            if (!categoria) {
+                throw new Error(`Categoria com ID ${updateTransacaoDto.categoria_id} não encontrada.`);
+            }
+            transacao.categoria = categoria;
+        }
+
+        if (updateTransacaoDto.data) {
+            transacao.data = updateTransacaoDto.data;
+        }
+
+        if (updateTransacaoDto.descricao) {
+            transacao.descricao = updateTransacaoDto.descricao;
+        }
+
+        if (updateTransacaoDto.tipo) {
+            transacao.tipo = updateTransacaoDto.tipo;
+        }
+
+        if (updateTransacaoDto.valor) {
+            transacao.valor = updateTransacaoDto.valor;
+        }
+
+        await this.calculoConta(transacao.conta.id);
+
+        return this.transacaoRepository.save(transacao);
+    }
+
+    async delete(id: number): Promise<void> {
         if (!id) {
             throw new Error('ID da transação não fornecido.');
         }
+        const transacao = await this.getTransacaoById(id);
+        if (!transacao) {
+            throw new Error(`Transação com ID ${id} não encontrada.`);
+        }
+
+        await this.calculoConta(transacao.conta.id);
 
         await this.transacaoRepository.delete(id);
     }
 
+    async calculoConta(contaId: number) {
+        const transacoes = await this.transacaoRepository.find({
+            where: { conta: { id: contaId } },
+        });
+        const conta = await this.contaService.getById(contaId);
+        if (!conta) {
+            throw new Error(`Conta com ID ${contaId} não encontrada.`);
+        }
+
+        conta.saldo = transacoes.reduce((saldo, transacao) => {
+            return transacao.tipo === TipoTransacao.ENTRADA ? saldo + parseFloat(transacao.valor.toString()) : saldo - parseFloat(transacao.valor.toString());
+        }, 0);
+        await this.contaService.update(conta.id, conta);
+    }
     
 }
