@@ -21,7 +21,14 @@ export class Transacao {
     @Column({ type: 'enum', enum: TipoTransacao })
     tipo: TipoTransacao;
 
-    @Column({ type: 'date' })
+    @Column({ 
+        type: 'date',
+        transformer: { 
+            to: (value: Date) => value,
+            from: (value: Date) =>
+                value ? new Date(value).toLocaleDateString('pt-BR') : null
+        }, 
+    })
     data: Date;
 
     @ManyToOne(() => Conta, conta => conta.transacoes)

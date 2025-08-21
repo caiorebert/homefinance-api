@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ContaService } from 'src/conta/conta.service';
 import { TransacaoService } from 'src/transacao/transacao.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class HomeService {
@@ -9,11 +10,15 @@ export class HomeService {
         @Inject(TransacaoService)
         private readonly transacaoService: TransacaoService,
         @Inject(ContaService)
-        private readonly contaService: ContaService
+        private readonly contaService: ContaService,
+        @Inject(UserService)
+        private readonly userService: UserService,
     ) {}
 
     async getHome(user_id:number): Promise<Object> {
         
+        const user = await this.userService.getUserById(user_id);
+
         const conta = await this.contaService.getContaByUserId(user_id);        
 
         const transacoes = await this.transacaoService.getTransacoesByUsuarioId(user_id);
@@ -24,6 +29,7 @@ export class HomeService {
 
         return {
             data: {
+                primeiroNome: user.name.split(' ')[0],
                 saldoTotal: parseFloat(conta.saldo.toString()).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 transacoes: transacoes || [],
                 despesas: saidas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),

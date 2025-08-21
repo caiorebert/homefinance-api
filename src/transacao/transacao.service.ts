@@ -163,10 +163,12 @@ export class TransacaoService {
         if (updateTransacaoDto.valor) {
             transacao.valor = updateTransacaoDto.valor;
         }
+        
+        await this.transacaoRepository.save(transacao);
 
         await this.calculoConta(transacao.conta.id);
 
-        return this.transacaoRepository.save(transacao);
+        return transacao;
     }
 
     async delete(id: number): Promise<void> {
@@ -178,9 +180,9 @@ export class TransacaoService {
             throw new Error(`Transação com ID ${id} não encontrada.`);
         }
 
-        await this.calculoConta(transacao.conta.id);
-
         await this.transacaoRepository.delete(id);
+
+        await this.calculoConta(transacao.conta.id);
     }
 
     async calculoConta(contaId: number) {
