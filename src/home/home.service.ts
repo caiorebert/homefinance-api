@@ -27,6 +27,8 @@ export class HomeService {
 
         const saidas = await this.transacaoService.getValorSaidas(conta.id);
 
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
         return {
             data: {
                 primeiroNome: user.name.split(' ')[0],

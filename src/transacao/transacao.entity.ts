@@ -31,6 +31,9 @@ export class Transacao {
     })
     data: Date;
 
+    @Column({ type: 'boolean', default: false })
+    fixo: boolean;
+
     @ManyToOne(() => Conta, conta => conta.transacoes)
     @JoinColumn({ name: 'conta_id' })
     conta: Conta;

@@ -1,3 +1,4 @@
+import { Cartao } from 'src/cartao/cartao.entity';
 import { Transacao } from 'src/transacao/transacao.entity';
 import { User } from 'src/user/user.entity';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, ManyToOne, JoinColumn, OneToMany, DeleteDateColumn } from 'typeorm';
@@ -22,6 +23,9 @@ export class Conta {
 
     @OneToMany(() => Transacao, transacao => transacao.conta)
     transacoes: Transacao[];
+
+    @OneToMany(() => Cartao, cartao => cartao.conta)
+    cartoes: Cartao[];
 
     @Column({ default: true })
     ativo: boolean;

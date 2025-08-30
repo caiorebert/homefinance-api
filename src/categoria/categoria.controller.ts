@@ -12,7 +12,7 @@ export class CategoriaController {
 
     @Get('/')
     getCategorias(): Object {
-        return [];
+        return this.categoriaService.getAllCategorias();
     }
 
     @Get('/{id}')

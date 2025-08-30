@@ -7,5 +7,6 @@ export class CreateTransacaoDto {
     tipo: TipoTransacao;
     conta_id?: number;
     user_id?: number;
+    fixo?: boolean;
     descricao?: string;
 }

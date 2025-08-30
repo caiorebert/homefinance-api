@@ -20,6 +20,15 @@ export class TransacaoController {
         return this.transacaoService.getTransacaoById(id);
     }
 
+    @Post('/fixas')
+    async getTransacoesFixas(@Body() body: { conta_id: number }): Promise<Object> {
+        try {
+            return await this.transacaoService.getTransacoesFixas(body.conta_id);
+        } catch (error) {
+            return { message: error.message };
+        }
+    }
+
     @Post('/')
     createTransacao(@Body() createTransacaoDTO: CreateTransacaoDto): Object {
         try {

@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Transacao } from './transacao.entity';
-import { Repository } from 'typeorm';
+import { LessThan, MoreThan, Repository } from 'typeorm';
 import { TransacaoDto } from './dto/transacao.dto';
 import { UserService } from 'src/user/user.service';
 import { ContaService } from 'src/conta/conta.service';
@@ -49,7 +49,7 @@ export class TransacaoService {
         return transacao;
     }
 
-    async getTransacoesByUsuarioId(user_id: number): Promise<Transacao[]> {
+    async getTransacoesByUsuarioId(user_id: number, mesReferencia?: number, anoReferencia?: number): Promise<Transacao[]> {
         if (!user_id) {
             throw new Error('ID do usuário não fornecido.');
         }
@@ -57,39 +57,75 @@ export class TransacaoService {
         if (!contaUser) {
             throw new Error(`Conta não encontrada para o usuário com ID ${user_id}.`);
         }
-        return this.transacaoRepository.find({
-            select: [
-                'id',
-                'valor',
-                'data',
-                'descricao',
-                'tipo'
-            ], 
-            order: { data: 'DESC' },
-            where: { conta: { id: contaUser.id },
-        }});
+
+        let dataInicio: Date | undefined = undefined;
+        let dataFim: Date | undefined = undefined;
+
+        if (mesReferencia && anoReferencia) {
+            dataInicio = new Date(anoReferencia, mesReferencia - 1, 1);
+            dataFim = new Date(anoReferencia, mesReferencia, 0, 23, 59, 59, 999);
+        }
+
+        const query = this.transacaoRepository.createQueryBuilder('transacao')
+                        .select([
+                            'transacao.id',
+                            'transacao.valor',
+                            'transacao.data',
+                            'transacao.descricao',
+                            'transacao.tipo'
+                        ])
+                        .orderBy('transacao.data', 'DESC')
+                        .where('transacao.conta_id = :contaId', { contaId: contaUser.id });
+
+        if (dataInicio != undefined) {
+            query.andWhere('transacao.data >= :dataInicio', { dataInicio });
+        }
+
+        if (dataFim != undefined) {
+            query.andWhere('transacao.data <= :dataFim', { dataFim });
+        }
+
+        return await query.getMany();
     }
 
-    async getValorSaidas(conta_id: number): Promise<number> {
+    async getValorSaidas(conta_id: number, mesReferencia?:number, anoReferencia?:number): Promise<number> {
         if (!conta_id) {
             throw new Error('ID da conta não fornecido.');
         }
 
+        const whereConditions: any = { conta: { id: conta_id }, tipo: TipoTransacao.SAIDA };
+        if (mesReferencia && anoReferencia) {
+            const dataInicio = new Date(anoReferencia, mesReferencia - 1, 1);
+            const dataFim = new Date(anoReferencia, mesReferencia, 0, 23, 59, 59, 999);
+            whereConditions.data = MoreThan(dataInicio);
+            whereConditions.data = LessThan(dataFim);
+        }
+
         const transacoes = await this.transacaoRepository.find({
             select: ['valor'],
-            where: { conta: { id: conta_id }, tipo: TipoTransacao.SAIDA },
+            where: whereConditions,
         });
 
         return transacoes.reduce((total, transacao) => total + parseFloat(transacao.valor.toString()), 0);
     }
 
-    async getValorEntradas(conta_id: number): Promise<number> {
+    async getValorEntradas(conta_id: number, mesReferencia?: number, anoReferencia?: number): Promise<number> {
         if (!conta_id) {
             throw new Error('ID da conta não fornecido.');
         }
 
+        const whereConditions = { conta: { id: conta_id }, tipo: TipoTransacao.ENTRADA };
+        
+        if (mesReferencia && anoReferencia) {
+            const dataInicio = new Date(anoReferencia, mesReferencia - 1, 1);
+            const dataFim = new Date(anoReferencia, mesReferencia, 0, 23, 59, 59, 999);
+            Object.assign(whereConditions, { data: MoreThan(dataInicio) });
+            Object.assign(whereConditions, { data: LessThan(dataFim) });
+        }
+        
         const transacoes = await this.transacaoRepository.find({
-            where: { conta: { id: conta_id }, tipo: TipoTransacao.ENTRADA },
+            select: ['valor'],
+            where: whereConditions,
         });
 
         return transacoes.reduce((total, transacao) => total + parseFloat(transacao.valor.toString()), 0);
@@ -121,6 +157,7 @@ export class TransacaoService {
             categoria: categoria,
             conta: conta, 
             descricao: transacaoDTO.descricao,
+            fixo: transacaoDTO.fixo || false,
         });
 
         let saldoAtualizado = parseFloat(conta.saldo.toString());
@@ -164,6 +201,10 @@ export class TransacaoService {
             transacao.valor = updateTransacaoDto.valor;
         }
         
+        if (updateTransacaoDto.fixo !== undefined) {
+            transacao.fixo = updateTransacaoDto.fixo;
+        }
+
         await this.transacaoRepository.save(transacao);
 
         await this.calculoConta(transacao.conta.id);
@@ -180,14 +221,14 @@ export class TransacaoService {
             throw new Error(`Transação com ID ${id} não encontrada.`);
         }
 
-        await this.transacaoRepository.delete(id);
+        await this.transacaoRepository.softDelete(id);
 
         await this.calculoConta(transacao.conta.id);
     }
 
     async calculoConta(contaId: number) {
         const transacoes = await this.transacaoRepository.find({
-            where: { conta: { id: contaId } },
+            where: { deletedAt: undefined, conta: { id: contaId } },
         });
         const conta = await this.contaService.getById(contaId);
         if (!conta) {
@@ -198,6 +239,27 @@ export class TransacaoService {
             return transacao.tipo === TipoTransacao.ENTRADA ? saldo + parseFloat(transacao.valor.toString()) : saldo - parseFloat(transacao.valor.toString());
         }, 0);
         await this.contaService.update(conta.id, conta);
+    }
+
+    async getTransacoesFixas(conta_id:number): Promise<Object> {
+        if (!conta_id) {
+            throw new Error('ID da conta não fornecido.');
+        }
+
+        const conta = await this.contaService.getById(conta_id);
+        if (!conta) {
+            throw new Error(`Conta com ID ${conta_id} não encontrada.`);
+        }
+
+        const transacoes = await this.transacaoRepository.find({
+            where: { conta: { id: conta_id }, fixo: true, deletedAt: undefined },
+            order: { data: 'DESC' }
+        });
+
+        return {
+            data: transacoes,
+            message: 'Transações fixas encontradas com sucesso'
+        }
     }
     
 }

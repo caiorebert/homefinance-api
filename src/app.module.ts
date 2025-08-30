@@ -9,6 +9,8 @@ import { UserModule } from './user/user.module';
 import { ContaModule } from './conta/conta.module';
 import { CategoriaModule } from './categoria/categoria.module';
 import { ConfigModule } from '@nestjs/config';
+import { CartaoModule } from './cartao/cartao.module';
+import { BalancoModule } from './balanco/balanco.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { ConfigModule } from '@nestjs/config';
     UserModule,
     ContaModule,
     CategoriaModule,
+    CartaoModule,
+    BalancoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -46,6 +50,8 @@ import { ConfigModule } from '@nestjs/config';
     UserModule,
     ContaModule,
     CategoriaModule,
+    CartaoModule,
+    BalancoModule
   ],
 })
 export class AppModule {}
